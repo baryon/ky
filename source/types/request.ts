@@ -16,7 +16,7 @@ type UndiciBodyInit =
 	| Blob
 	| FormData
 	| Iterable<Uint8Array>
-	| NodeJS.ArrayBufferView
+	| ArrayBufferView
 	| URLSearchParams
 	// eslint-disable-next-line @typescript-eslint/ban-types
 	| null
@@ -60,6 +60,6 @@ type CombinedRequestInit = globalThis.RequestInit & UndiciRequestInit;
 
 export type RequestInitRegistry = {[K in keyof CombinedRequestInit]-?: true};
 
-export type KyRequest = {
-	json: <T = unknown>() => Promise<T>;
+export type KyRequest<T = unknown> = {
+	json: <J = T>() => Promise<J>;
 } & Request;

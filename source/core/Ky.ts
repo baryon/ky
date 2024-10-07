@@ -53,7 +53,7 @@ export class Ky {
 			ky._decorateResponse(response);
 
 			if (!response.ok && ky._options.throwHttpErrors) {
-				let error = new HTTPError(response, ky.request, (ky._options as unknown) as NormalizedOptions);
+				let error = new HTTPError(response, ky.request, ky._options as NormalizedOptions);
 
 				for (const hook of ky._options.hooks.beforeError) {
 					// eslint-disable-next-line no-await-in-loop
@@ -123,13 +123,8 @@ export class Ky {
 	// eslint-disable-next-line complexity
 	constructor(input: Input, options: Options = {}) {
 		this._input = input;
-		const credentials
-			= this._input instanceof Request && 'credentials' in Request.prototype
-				? this._input.credentials
-				: undefined;
 
 		this._options = {
-			...(credentials && {credentials}), // For exactOptionalPropertyTypes
 			...options,
 			headers: mergeHeaders((this._input as Request).headers, options.headers),
 			hooks: mergeHooks(
@@ -222,11 +217,17 @@ export class Ky {
 				throw error;
 			}
 
-			const retryAfter = error.response.headers.get('Retry-After');
+			const retryAfter = error.response.headers.get('Retry-After')
+				?? error.response.headers.get('RateLimit-Reset')
+				?? error.response.headers.get('X-RateLimit-Reset') // GitHub
+				?? error.response.headers.get('X-Rate-Limit-Reset'); // Twitter
 			if (retryAfter && this._options.retry.afterStatusCodes.includes(error.response.status)) {
 				let after = Number(retryAfter) * 1000;
 				if (Number.isNaN(after)) {
 					after = Date.parse(retryAfter) - Date.now();
+				} else if (after >= Date.parse('2024-01-01')) {
+					// A large number is treated as a timestamp (fixed threshold protects against clock skew)
+					after -= Date.now();
 				}
 
 				const max = this._options.retry.maxRetryAfter ?? after;
